@@ -9,19 +9,25 @@ $input = json_decode($rawInput, true);
 $apiKey = 'MGPYlWU6lMpS';
 $email = 'denniskoskey5@gmail.com';
 
-if (!$input) {
-    http_response_code(400);
-    echo json_encode([
-        'message' => 'Invalid JSON payload received by backend.',
-        'raw' => $rawInput
-    ]);
+function respond_json($statusCode, $data) {
+    http_response_code($statusCode);
+    echo json_encode($data);
     exit;
 }
 
+if (!$input) {
+    respond_json(400, [
+        'success' => false,
+        'message' => 'Invalid JSON payload received.',
+        'raw' => $rawInput
+    ]);
+}
+
 if (empty($input['msisdn']) || empty($input['amount']) || empty($input['reference'])) {
-    http_response_code(400);
-    echo json_encode(['message' => 'Missing required fields.']);
-    exit;
+    respond_json(400, [
+        'success' => false,
+        'message' => 'Missing required fields.'
+    ]);
 }
 
 $payload = [
@@ -44,27 +50,31 @@ $curlError = curl_error($ch);
 curl_close($ch);
 
 if ($curlError) {
-    http_response_code(500);
-    echo json_encode(['message' => 'cURL error: ' . $curlError]);
-    exit;
+    respond_json(500, [
+        'success' => false,
+        'message' => 'cURL error: ' . $curlError
+    ]);
 }
 
 if ($response === false || $response === '') {
-    http_response_code(500);
-    echo json_encode(['message' => 'Empty response from MegaPay.']);
-    exit;
+    respond_json(500, [
+        'success' => false,
+        'message' => 'Empty response from MegaPay.'
+    ]);
 }
 
 $decoded = json_decode($response, true);
 
 if ($httpCode >= 200 && $httpCode < 300) {
-    echo json_encode([
+    respond_json(200, [
         'success' => true,
         'message' => $decoded['message'] ?? 'STK push initiated successfully.',
         'data' => $decoded
     ]);
-} else {
-    http_response_code($httpCode ?: 500);
-    echo json_encode([
-        'success' => false,
-        'message' => $decoded['message'] ??
+}
+
+respond_json($httpCode ?: 500, [
+    'success' => false,
+    'message' => $decoded['message'] ?? 'MegaPay request failed.',
+    'data' => $decoded
+]);
